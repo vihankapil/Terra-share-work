@@ -1,0 +1,104 @@
+---
+- name: Install nginx
+  hosts: public
+  become: yes
+  become_method: sudo
+  gather_facts: true 
+  tags: [nginx]
+  tasks:
+  - name: Install nginx 
+    dnf:
+      name: nginx
+      state: latest
+
+  - name: Copy nginx config file.
+    copy:
+      src: nginx.conf
+      dest: /etc/nginx/nginx.conf
+  
+- name: Copy index.html file.
+    copy:
+      src: index.html
+      dest: /usr/share/nginx/html/
+
+  - name: Create certificate dir
+    file:
+      path: /etc/pki/nginx
+      state: directory
+
+  - name: Copy key file to nginx server cert
+    copy:
+      src: web.example.com-cert.pem
+      dest: /etc/pki/nginx/server.crt
+
+  - name: Create nginx private dir
+    file:
+      path: /etc/pki/nginx/private
+      state: directory
+
+  - name: Copy private file
+    copy:
+      src: web.example.com-key.pem
+      dest: /etc/pki/nginx/private/server.key
+
+  - name: Restart Service 
+    service:
+      name: nginx
+      state: started
+
+  - name: Copy nginx logrotation file
+    copy:
+      src: nginx-logrotate.conf
+      dest: /etc/nginx/nginx-logrotate.conf
+  
+  - name: Remove Original nginx logrotation file 
+    file:
+      dest: /etc/logrotate.d/nginx
+      state: absent
+
+  - name: Creates a cron file under /etc/cron.d
+    cron:
+      name: nginx logrotate
+      minute: "0"
+      hour: "0"
+      day: "*/4"
+      user: root
+      job: "logrotate -vf /etc/nginx/nginx-logrotate.conf "
+      cron_file: ansible_nginx
+
+  - name: Adding Team User
+    user:
+      name: team
+      comment: Team User
+      state: present
+
+  - name: Set passowrd for Team User
+    command: echo redhat | passwd --stdin team
+
+  - name: Create SSH Dir for Team User
+    file:
+      path: /home/team/.ssh
+      state: directory
+      owner: team
+      group: team
+      mode: '0700'
+
+  - name: Copy key file to nginx server cert
+    copy:
+      src: assignment_private-key.pub
+      dest: /home/team/.ssh/authorized_keys
+      owner: team
+      group: team
+      mode: '0600'
+ 
+
+  - name: Creates a cron file under /etc/cron.d
+    cron:
+      name: yum security update
+      weekday: "1"
+      minute: "0"
+      hour: "10"
+      user: root
+      job: "yum -y update --security"
+      cron_file: ansible_yum-secupdate
+
